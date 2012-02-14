@@ -14,8 +14,6 @@ if len(sys.argv) < 2:
     exit(1)
 
 hexstr = sys.argv[1]
-if len(hexstr)%2 != 0:
-    hexstr = '0'+hexstr
 try: 
     delim = sys.argv[2]
     if len(delim) > 1:
@@ -27,6 +25,9 @@ try:
     hexstr = ''.join(hexstr.split(delim))
 except:
     pass
+
+if len(hexstr)%2 != 0:
+    hexstr = '0'+hexstr
 
 ascii_str = str(binascii.unhexlify(hexstr))
 
