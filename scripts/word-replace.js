@@ -1,6 +1,6 @@
 /*
  * word-replace.js: 
- * Preforms find and replace text for all Word Documents of a given folder
+ * Preforms find and replace text for all MS Word Documents of a given folder
  * NOTE: Requires Windows Script Host to run
  * 2011-03-25
  *
