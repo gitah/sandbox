@@ -1,5 +1,6 @@
 # rot.py
 # Preforms a caeser cipher
+# Fred Song, xx@uvic.ca
 
 def rot_char(c,d):
     num = ord(c)
