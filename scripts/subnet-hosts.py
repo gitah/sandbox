@@ -32,6 +32,8 @@ class IPNetwork():
 
     @staticmethod
     def bin_to_str(ip):
+        assert len(ip) == 32
+
         p1 = "".join(ip[0:8])
         p2 = "".join(ip[8:16])
         p3 = "".join(ip[16:24])
@@ -51,6 +53,7 @@ class IPNetwork():
         ips = []
         for int_ip in xrange(min_ip+1, max_ip):
             bin_ip =  bin(int_ip).split('b')[1]
+            bin_ip = ["0"]*(32-len(bin_ip)) + list(bin_ip)
             ips.append(IPNetwork.bin_to_str(bin_ip))
 
         return ips
@@ -61,7 +64,8 @@ def ip_up(ip, deadline=1):
 def test():
     print IPNetwork("192.168.20.200","24").get_network_ips()
     print "---"
-    print IPNetwork("192.168.255.0","23").get_network_ips()
+    print IPNetwork("10.175.132.0","24").get_network_ips()
+
 
 
 if __name__ == "__main__":
