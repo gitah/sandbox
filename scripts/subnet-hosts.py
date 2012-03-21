@@ -1,7 +1,8 @@
-# subnet-hosts.py, Fred Song
+# subnet-hosts.py
+# Preforms an ICMP sweep over all the ips
+# of a subnet to find all active hosts
 
-# Preforming an ICMP sweep over all the ips
-# of a subnet and lists all active hosts
+# Author: Fred Song, xx@uvic.ca
 
 import sys
 import os
