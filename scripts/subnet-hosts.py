@@ -1,8 +1,14 @@
 # subnet-hosts.py, Fred Song
-# Lists all hosts in a given subnet
+
+# Preforming an ICMP sweep over all the ips
+# of a subnet and lists all active hosts
+
+#TODO: implement threading when sending ICMP echo requests via `ping`
 
 import sys
 import os
+
+import threading
 
 class IPNetwork():
     def __init__(self, net_prefix, prefix_length):
@@ -67,6 +73,20 @@ def test():
     print IPNetwork("10.175.132.0","24").get_network_ips()
 
 
+class CheckIPThread(threading.Thread):
+    def __init__(self, ip, callback):
+        threading.Thread.__init__(self)
+        self.ip = ip
+        self.callback = callback
+
+    def run(self):
+        exists = CheckIPThread.ping(self.ip)
+        self.callback(self.ip,exists)
+
+    @staticmethod
+    def ping(ip, deadline=1):
+        return (os.system("ping -w%s %s > /dev/null" % (deadline,ip)) == 0)
+
 
 if __name__ == "__main__":
 
@@ -83,8 +103,12 @@ if __name__ == "__main__":
     prefix_length = network_info[1]
 
     net = IPNetwork(net_prefix, prefix_length)
-    #print "Active ips:"
-    for ip in net.get_network_ips():
-        if ip_up(ip):
+
+
+    def print_ip(ip, exists):
+        if exists:
             print ip
-    #exit(0)
+    for ip in net.get_network_ips():
+        CheckIPThread(ip, print_ip).start()
+
+    exit(0)
