@@ -3,8 +3,6 @@
 # Preforming an ICMP sweep over all the ips
 # of a subnet and lists all active hosts
 
-#TODO: implement threading when sending ICMP echo requests via `ping`
-
 import sys
 import os
 
@@ -64,15 +62,6 @@ class IPNetwork():
 
         return ips
 
-def ip_up(ip, deadline=1):
-    return (os.system("ping -w%s %s > /dev/null" % (deadline,ip)) == 0)
-
-def test():
-    print IPNetwork("192.168.20.200","24").get_network_ips()
-    print "---"
-    print IPNetwork("10.175.132.0","24").get_network_ips()
-
-
 class CheckIPThread(threading.Thread):
     def __init__(self, ip, callback):
         threading.Thread.__init__(self)
@@ -87,6 +76,10 @@ class CheckIPThread(threading.Thread):
     def ping(ip, deadline=1):
         return (os.system("ping -w%s %s > /dev/null" % (deadline,ip)) == 0)
 
+def test():
+    print IPNetwork("192.168.20.200","24").get_network_ips()
+    print "---"
+    print IPNetwork("10.175.132.0","24").get_network_ips()
 
 if __name__ == "__main__":
 
