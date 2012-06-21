@@ -7,13 +7,13 @@
 # Here is how it works:
 #   1. (<regex>, <string>) is given as input
 #   2. convert <regex> to <postfix>
-#   3. Build <NDFA> from <postfix>
-#   4. Convert <NDFA> to <DFA>
+#   3. Build <NFA> from <postfix>
+#   4. Convert <NFA> to <DFA>
 #   5. use <DFA> to match <regex> with <string>
 
 #TODO:
-#   - Make NDFA class
-#   - Finish post-> ndfa
+#   - implement NFA -> DFA algorithm
+# http://web.cecs.pdx.edu/~harry/compilers/slides/LexicalPart3.pdf
 
 #---- Constants ----#
 unary_ops = ["*","+","?"]
@@ -52,12 +52,13 @@ class Vertex:
     def get_adj(self):
         return [e.target for e in self.edges]
 
-class NDFA():
+class NFA():
     """Non-deterministic finite automaton"""
     def __init__(self,start_vertex):
         self.start = start_vertex
 
     def get_accept(self):
+        """Returns a list of the accept vertices"""
         accept_vertices = []
         def count_accept(v):
             if v.accept:
@@ -87,62 +88,74 @@ class NDFA():
 
     def __str__(self):
         out = []
+        def vid(v):
+            return str(id(v))[-3:]
+
         def print_v(v):
-            format_str = "%s (s: %s, a: %s): t[%s]"
-            out.append(format_str % (v, v == self.start, v.accept, 
-                ",".join([str(e.transition) for e in v.edges])))
+            format_str = "%s (start: %s, accept: %s): t[%s]"
+            out.append(format_str % (vid(v), v == self.start, v.accept, 
+                ",".join([str(e.transition)+"(%s)"% vid(e.target) for e in v.edges])))
 
         self.dfs(print_v)
         return "\n".join(out)
 
-    # These are static constructor methods for building NDFAs
+    # These are static constructor methods for building NFAs
     # Called during postfix parsing
     @staticmethod
-    def build_singleton(transition):
-        """The simplest NDFA for a single character
+    def build_singleton_nfa(transition):
+        """The simplest NFA for a single character
             
-            Returns NDFA
+            Returns NFA
                 V: {start, end}
                 E: {(start, end, transition)}
         """
         start = Vertex()
         start.connect(Vertex(accept=True), transition)
-        return NDFA(start)
+        return NFA(start)
 
     #Binary Operators
     @staticmethod
-    def build_concat(ndfa1, ndfa2):
-        """Joins two NDFA together to implement the & operator"""
-        start2 = ndfa2.start
-        for acc in ndfa1.get_accept():
+    def build_concat_nfa(nfa1, nfa2):
+        """Joins two NFA together to implement the & operator"""
+        start2 = nfa2.start
+        for acc in nfa1.get_accept():
             acc.connect(start2, None)
-        return NDFA(ndfa1.start)
+            acc.accept = False
+
+        return NFA(nfa1.start)
 
     @staticmethod
-    def build_or(ndfa1, ndfa2):
-        """Joins two NDFA together to implement the | operator"""
-        start1 = ndfa1.start
-        start2 = ndfa2.start
+    def build_or_nfa(nfa1, nfa2):
+        """Joins two NFA together to implement the | operator"""
+        start1 = nfa1.start
+        start2 = nfa2.start
 
         start1.connect(start2, None)
-        return NDFA(ndfa1.start)
+        return NFA(nfa1.start)
 
     #Unary Operators
     @staticmethod
-    def build_star(ndfa):
-        """Returns a modified version of the ndfa to implement the * operator"""
-        pass
+    def build_star_nfa(nfa):
+        """Returns a modified version of the nfa to implement the * operator"""
+        plus_nfa = NFA.build_plus_nfa(nfa)
+        nfa.start.accept = True    
+        return NFA(nfa.start)
 
     @staticmethod
-    def build_plus(ndfa):
-        """Returns a modified version of the ndfa to implement the + operator"""
-        pass
+    def build_plus_nfa(nfa):
+        """Returns a modified version of the nfa to implement the + operator"""
+        # get all accept vertices V_a
+        # for v_a in V_a: add edge from v_a to v_start
+        for acc in nfa.get_accept():
+            acc.connect(nfa.start, None)
+        return NFA(nfa.start)
 
     @staticmethod
-    def build_question():
-        """Returns a modified version of the ndfa to implement the ? operator"""
-        pass
-
+    def build_question_nfa(nfa):
+        """Returns a modified version of the nfa to implement the ? operator"""
+        opt_node = Vertex(accept=True)
+        nfa.start.connect(opt_node, None)
+        return NFA(nfa.start)
 
 
 #---- Regex -> Postfix ----#
@@ -245,37 +258,54 @@ def postfix_recur(start_index, regex_arr):
 
     return pop_stacks(exp_stack, op_stack) 
 
-#---- Postfix -> NDFA ----#
-def dfa(post_regex):
+#---- Postfix -> NFA ----#
+def nfa(post_regex):
     regex_arr = regex_toarray(post_regex)
     
     stack = []
     for c in regex_arr:
         if c not in operators:
-            stack.append(NDFA.build_singleton(c))
+            stack.append(NFA.build_singleton_nfa(c))
         elif c in binary_ops:
             e2 = stack.pop()
             e1 = stack.pop()
 
             if c == '&':
-                stack.append(NDFA.build_concat(e1,e2))
+                stack.append(NFA.build_concat_nfa(e1,e2))
             elif c == '|':
-                stack.append(NDFA.build_or(e1,e2))
+                stack.append(NFA.build_or_nfa(e1,e2))
 
         elif c in unary_ops:
             e1 = stack.pop()
 
             if c == '*':
-                stack.append(NDFA.build_star(e1))
+                stack.append(NFA.build_star_nfa(e1))
             elif c == '+':
-                stack.append(NDFA.build_plus(e1))
+                stack.append(NFA.build_plus_nfa(e1))
             elif c == '?':
-                stack.append(NDFA.build_question(e1))
+                stack.append(NFA.build_question_nfa(e1))
 
     return stack.pop()
 
-#---- NDFA -> DFA ----#
-def ndfa_to_dfa(ndfa):
+#---- NFA -> DFA ----#
+#TODO
+def nfa_to_dfa(nfa):
+    pass
+
+def set_trans(states, alph):
+    """returns list of states Q where for 
+        q in Q, and s in states,
+        
+        Tr_nfa(s,alph) = q
+    """
+    pass
+
+def null_closure(state):
+    """state is a vertex from NFA, returns null_closure of state"""
+    pass
+
+def null_set_closure(states):
+    """states set of substates from NFA, returns null_closure of states"""
     pass
 
 #---- Utility ----#
@@ -301,11 +331,11 @@ def match(myregex, mystr):
     # Convert to postfix for easier parsing
     post_regex = postfix(myregex)
 
-    # Turn to NDFA
-    ndfa = dfa(post_regex)
+    # Turn to NFA
+    nfa = dfa(post_regex)
 
     # Turn to DFA
-    dfa = ndfa_to_dfa(ndfa)
+    dfa = nfa_to_dfa(nfa)
 
     # Walk DFA
     return _walk_dfa(dfa, mystr)
@@ -314,14 +344,14 @@ def match(myregex, mystr):
 if __name__ == "__main__":
     #t1 =  r"ab"
     t2 =  r"(a|b)"
-    t3 =  r"a\+"
+    t3 =  r"(a|b)a+"
     t4 =  r"(a|b)*cd"
     t5 =  r"(a|b)*fo\+"
     t6 =  r"((a|b)*aba*)*(a|b)(a|b)"
     t7 =  r"(a|b)+@vic\.(ca|com)"
 
     #print t1, ": ",  postfix(t1)
-    print t2, ": ",  postfix(t2)
+    #print t2, ": ",  postfix(t2)
     #print t3, ": ",  postfix(t3)
     #print t4, ": ",  postfix(t4)
     #print t5, ": ",  postfix(t5)
@@ -329,5 +359,5 @@ if __name__ == "__main__":
     #print t7, ": ",  postfix(t7)
 
     print "------"
-    #print dfa(postfix(t1))
-    print dfa(postfix(t2))
+    #print nfa(postfix(t1))
+    print nfa(postfix(t2))
