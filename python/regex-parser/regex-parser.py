@@ -1,8 +1,8 @@
 # fred-regex.py
-# Author: Fred Song, xx@uvic.ca
+# Author: Fred Song, fsong@xei.ca
 
 # This is my implementation of a regex parser in Python
-# I'm doing it just for fun; do what ever you like with the code
+# I'm doing this just for fun; do what ever you like with the code
 
 # Here is how it works:
 #   1. (<regex>, <string>) is given as input
@@ -31,39 +31,52 @@ misc = ["^","$", "\\s", "\\w"]
 
 
 #---- Classes ----#
-class Vertex:
-    class Edge:
-        def __init__(self, target, transition):
-            #transition == None means an espilon edge
-            self.transition = transition
-            self.target = target
-        
-        def __str__(self):
-            return self.transition
-
-    def __init__(self, accept=False):
+class State:
+    """A state in the automaton"""
+    def __init__(self, start=False, accept=False):
+        self.start = start
         self.accept = accept
-        self.edges = []
+        self.transitions = {}
+        self.transitions["null"]
 
-    def connect(self, v2, transition):
-        edge = Vertex.Edge(v2,transition)
-        self.edges.append(edge)
+    def add_transition(self, v2, trans=None):
+        if not trans:
+            self.transitions["null"] = v2
+        else:
+            self.transition[trans] = v2
+
+    def is_start(self):
+        return self.start
+
+    def is_accept(self):
+        return self.accept
 
     def get_adj(self):
-        return [e.target for e in self.edges]
+        return self.transitions.items()
+
+    def set_accept(self, accept):
+        self.accept = bool(accept)
+
+    def __str__(self):
+        def vid(v):
+            return str(id(v))[-3:]
+        format_str = "%s (start: %s, accept: %s): t[%s]"
+
+        trans = ["%s->%s"%(t,vid(n)) for t,n in self.transitions.iteritems()]
+        return format_str % (vid(self),self.is_accept(),self.is_start(),
+                ",".join(trans))
 
 class NFA():
     """Non-deterministic finite automaton"""
-    def __init__(self,start_vertex):
-        self.start = start_vertex
+    def __init__(self,start_state):
+        self.start = start_state
 
-    def get_accept(self):
-        """Returns a list of the accept vertices"""
-        accept_vertices = []
+    def get_accept_states(self):
+        """Returns a list of the accept states"""
+        accept_states = []
         def count_accept(v):
-            if v.accept:
-                accept_vertices.append(v)
-
+            if v.is_accept():
+                accept_states.append(v)
         self.dfs(count_accept)
         return accept_vertices
 
@@ -92,15 +105,11 @@ class NFA():
             return str(id(v))[-3:]
 
         def print_v(v):
-            format_str = "%s (start: %s, accept: %s): t[%s]"
-            out.append(format_str % (vid(v), v == self.start, v.accept, 
-                ",".join([str(e.transition)+"(%s)"% vid(e.target) for e in v.edges])))
-
-        self.dfs(print_v)
+            out.add(str(v))
+        self.dfs(lambda v: out.append(str(v)))
         return "\n".join(out)
 
     # These are static constructor methods for building NFAs
-    # Called during postfix parsing
     @staticmethod
     def build_singleton_nfa(transition):
         """The simplest NFA for a single character
@@ -109,8 +118,9 @@ class NFA():
                 V: {start, end}
                 E: {(start, end, transition)}
         """
-        start = Vertex()
-        start.connect(Vertex(accept=True), transition)
+        start = State(start=True)
+        acc = State(accept=True)
+        start.connect(acc, transition)
         return NFA(start)
 
     #Binary Operators
@@ -118,10 +128,9 @@ class NFA():
     def build_concat_nfa(nfa1, nfa2):
         """Joins two NFA together to implement the & operator"""
         start2 = nfa2.start
-        for acc in nfa1.get_accept():
-            acc.connect(start2, None)
-            acc.accept = False
-
+        for acc in nfa1.get_accept_states():
+            acc.add_transition(start2, None)
+            acc.set_accept(False)
         return NFA(nfa1.start)
 
     @staticmethod
@@ -129,8 +138,7 @@ class NFA():
         """Joins two NFA together to implement the | operator"""
         start1 = nfa1.start
         start2 = nfa2.start
-
-        start1.connect(start2, None)
+        start1.add_transition(start2, None)
         return NFA(nfa1.start)
 
     #Unary Operators
@@ -146,20 +154,19 @@ class NFA():
         """Returns a modified version of the nfa to implement the + operator"""
         # get all accept vertices V_a
         # for v_a in V_a: add edge from v_a to v_start
-        for acc in nfa.get_accept():
-            acc.connect(nfa.start, None)
+        for acc in nfa.get_accept_states():
+            acc.add_transition(nfa.start, None)
         return NFA(nfa.start)
 
     @staticmethod
     def build_question_nfa(nfa):
         """Returns a modified version of the nfa to implement the ? operator"""
         opt_node = Vertex(accept=True)
-        nfa.start.connect(opt_node, None)
+        nfa.start.add_transition(opt_node, None)
         return NFA(nfa.start)
 
-
 #---- Regex -> Postfix ----#
-def regex_toarray(myregex):
+def regex_to_array(myregex):
     """Turns regex into array and adds & operator where appropriate"""
     regex_arr = []
     # First pass turn regex to an array
@@ -186,7 +193,7 @@ def postfix(myregex):
         (a|b)+@vic\.(ca|com) -> ab|+@&uU|&v&i&c&\.&ca&co&m&|&
     """
 
-    regex_arr = regex_toarray(myregex)
+    regex_arr = regex_to_array(myregex)
     #print "[%s]" % ",".join(regex_arr)
 
     return postfix_recur(0,regex_arr)
@@ -260,7 +267,7 @@ def postfix_recur(start_index, regex_arr):
 
 #---- Postfix -> NFA ----#
 def nfa(post_regex):
-    regex_arr = regex_toarray(post_regex)
+    regex_arr = regex_to_array(post_regex)
     
     stack = []
     for c in regex_arr:
@@ -290,15 +297,32 @@ def nfa(post_regex):
 #---- NFA -> DFA ----#
 #TODO
 def nfa_to_dfa(nfa):
+    start = null_closure(nfa.start)
+    for inp in inputs:
+        start.add_transition(null_set_closure(nfa_transition(start, inp)))
+
     pass
 
 def set_trans(states, alph):
     """returns list of states Q where for 
         q in Q, and s in states,
         
+    # Called during postfix parsing
+    # Called during postfix parsing
+    # Called during postfix parsing
         Tr_nfa(s,alph) = q
     """
     pass
+
+def nfa_transition(states, inp):
+    """Takes a set of states and a input and returns the set of next states states"""
+    new_states = set()
+    for v in states:
+        for e in v.edges:
+            if e.transition == inp:
+                new_states.add(e.target)
+    return new_states
+
 
 def null_closure(state):
     """state is a vertex from NFA, returns null_closure of state"""
