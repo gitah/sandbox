@@ -30,30 +30,36 @@ class State(object):
                 ",".join(trans))
 
 class NFAState(State):
-        def __init__(self, start=False, accept=False):
-            super(NFAState, self).__init__(start,accept)
-            self.null_transitions = []
+    """Represents a state in a NFA"""
+    def __init__(self, start=False, accept=False):
+        super(NFAState, self).__init__(start,accept)
+        self.null_transitions = []
 
-        def add_transition(self, v2, trans=None):
-            if not trans:
-                self.null_transitions.append(v2)
-            else:
-                super(NFAState, self).add_transition(v2,trans)
+    def add_transition(self, v2, trans=None):
+        if not trans:
+            self.null_transitions.append(v2)
+        else:
+            super(NFAState, self).add_transition(v2,trans)
 
-        def get_adj(self):
-            return super(NFAState,self).get_adj() | \
-                    set(self.get_null_transitions())
+    def get_adj(self):
+        return super(NFAState,self).get_adj() | \
+                set(self.get_null_transitions())
 
-        def get_transition(self, trans):
-            return self.transitions.get(trans, None)
+    def get_transition(self, trans):
+        return self.transitions.get(trans, None)
 
-        def get_null_transitions(self):
-            return self.null_transitions
+    def get_null_transitions(self):
+        return self.null_transitions
 
 class DFAState(State):
-        def __init__(self, start=False, accept=False, substates=None):
-            super(DFAState, self).__init__(start,accept)
-            self.substates = substates if substates else []
+    """Represents a state in a DFA"""
+    def __init__(self, start=False, accept=False, substates=None):
+        super(DFAState, self).__init__(start,accept)
+        self.substates = set(substates) if substates else set()
+
+    def get_substates(self):
+        """ returns the set of DFASubstates represented by this DFAstate """
+        return self.substates
 
 class Automaton(object):
     """ Represents and Automaton"""
@@ -72,6 +78,12 @@ class Automaton(object):
                 accept_states.append(v)
         self.__dfs(count_accept)
         return accept_states
+
+    def get_states(self):
+        """returns a set containing all states in the Automaton"""
+        #TODO
+        raise NotImplementedError()
+
 
     def __dfs(self, op):
         # Preforms depth-first search on Automaton 
@@ -105,7 +117,7 @@ class Automaton(object):
 class NFA(Automaton):
     """Non-deterministic finite automaton"""
     def __init__(self, start_state):
-        self.start = start_state
+        super(NFA,self).__init__(start_state)
 
     def null_closure(self, states):
         """returns the null-closure of a set of state in the NFA"""
@@ -135,5 +147,50 @@ class NFA(Automaton):
                 next_states.add(nxt)
         return next_states
 
-class DFA(object):
-    pass
+    def __explicit_transitions(self, states):
+        """ returns all alphabet values that have transitions defined in the
+        given set of NFAStates"""
+        #TODO
+        raise NotImplementedError()
+
+    def to_dfa(self):
+        """converts this NFA to a DFA and returns it"""
+        # get start state
+        start_substates = self.null_closure(self.get_start_state())
+        dfa_start = DFAState(start=True, accept=False, substates=start_substates)
+        # create dfa with start state
+        dfa = DFA(nfa_start)
+        unmarked = [nfa_start]
+
+        #add transitions to DFA
+        while unmarked:
+            curr_dfa_state = unmarked.pop()
+            curr_nfa_substates = curr_dfa_state.get_substates()
+            for trans in self.__explicit_transitions(curr_nfa_substates):
+                trans_nfa_states = null_closure(
+                    self.transitions(curr_nfa_substates, trans))
+                
+                if not dfa.in_dfa(trans_nfa_states):
+                    trans_dfa_state = DFAState(substates=curr_nfa_substates)
+                    curr_dfa_state.add_transition(trans_dfa_state, trans)
+                    umarked.append(trans_dfa_state)
+
+        # set accept states in dfa
+        for s in nfa.get_states():
+            for sub in s.get_substates():
+                if sub.is_accept():
+                    s.set_accept(True)
+                    continue
+
+class DFA(Automaton):
+    def __init__(self, start_state):
+        super(DFA,self).__init__(start_state)
+
+    def in_dfa(self, nfa_states):
+        """ true if the DFA has a state that represents the given set of
+        NFAStates"""
+        #TODO
+        raise NotImplementedError()
+        raise NotImplementedError()
+        raise NotImplementedError()
+        pass
