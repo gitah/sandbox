@@ -15,7 +15,7 @@ class State(object):
         return self.accept
 
     def get_adj(self):
-        return [v for k,v in self.transitions.items()]
+        return {v for k,v in self.transitions.items()}
 
     def set_accept(self, accept):
         self.accept = bool(accept)
@@ -40,6 +40,10 @@ class NFAState(State):
             else:
                 super(NFAState, self).add_transition(v2,trans)
 
+        def get_adj(self):
+            return super(NFAState,self).get_adj() | \
+                    set(self.get_null_transitions())
+
         def get_transition(self, trans):
             return self.transitions.get(trans, None)
 
@@ -51,11 +55,14 @@ class DFAState(State):
             super(DFAState, self).__init__(start,accept)
             self.substates = substates if substates else []
 
-
-class NFA():
-    """Non-deterministic finite automaton"""
-    def __init__(self,start_state):
+class Automaton(object):
+    """ Represents and Automaton"""
+    def __init__(self, start_state):
         self.start = start_state
+
+    def get_start_state(self):
+        """Returns the start state"""
+        return self.start
 
     def get_accept_states(self):
         """Returns a list of the accept states"""
@@ -63,50 +70,16 @@ class NFA():
         def count_accept(v):
             if v.is_accept():
                 accept_states.append(v)
-        self.dfs(count_accept)
+        self.__dfs(count_accept)
         return accept_states
 
-    def null_closure(self, state):
-        """returns the null-closure of a given state in the NFA"""
-        nc = set()
-        def null_closure_recur(v):
-            nc.add(v)
-            for u in v.get_null_transitions():
-                null_closure_recur(u)
-        null_closure_recur(state)
-        return nc
-
-    def null_closure_states(self, states):
-        """returns the null-closure of a set of state in the NFA"""
-        nc = set()
-        for s in states:
-            nc = nc | self.null_closure(s)
-        return nc
-
-    def transition(self, state, trans):
-        """ Given a state in the NFA and a transition t, returns the next state
-            if available 
-        """
-        return state.get_transition(trans)
-
-    def transition_states(self, states, trans):
-        """ Given a set of states S and a transition t in the NFA returns a
-            set of next states that would be reached from S via transition t 
-        """
-        next_states = set()
-        for s in states:
-            nxt = self.transition(s, trans)
-            if nxt:
-                next_states.add(nxt)
-        return next_states
-
-    def dfs(self, op):
-        """Preforms depth-first search on graph and running function 'op' on
-        each of the visited verticies"""
+    def __dfs(self, op):
+        # Preforms depth-first search on Automaton 
+        # executes function 'op' on each of the visited states
         def dfs_recur(v):
             op(v)
             v._visited = True
-            for u in (v.get_adj() + v.get_null_transitions()):       
+            for u in v.get_adj():       
                 if not hasattr(u, "_visited"):
                     dfs_recur(u)
 
@@ -126,5 +99,41 @@ class NFA():
 
         def print_v(v):
             out.add(str(v))
-        self.dfs(lambda v: out.append(str(v)))
+        self.__dfs(lambda v: out.append(str(v)))
         return "\n".join(out)
+
+class NFA(Automaton):
+    """Non-deterministic finite automaton"""
+    def __init__(self, start_state):
+        self.start = start_state
+
+    def null_closure(self, states):
+        """returns the null-closure of a set of state in the NFA"""
+        # returns the null-closure of a single state
+        def null_closure_single(state):
+            nc = set()
+            def null_closure_recur(v):
+                nc.add(v)
+                for u in v.get_null_transitions():
+                    null_closure_recur(u)
+            null_closure_recur(state)
+            return nc
+
+        nc = set()
+        for s in states:
+            nc = nc | null_closure_single(s)
+        return nc
+
+    def transition(self, states, trans):
+        """ Given a set of states S and a transition t in the NFA returns a
+            set of next states that would be reached from S via transition t 
+        """
+        next_states = set()
+        for s in states:
+            nxt = s.get_transition(trans)
+            if nxt:
+                next_states.add(nxt)
+        return next_states
+
+class DFA(object):
+    pass

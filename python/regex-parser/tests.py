@@ -22,7 +22,7 @@ class TestAutomaton(unittest.TestCase):
         s1.add_transition(s3, "a")
         self.assertTrue(s1.get_null_transitions()[0] == s2)
         self.assertTrue(s1.get_transition("a") == s3)
-        self.assertEquals(set(s1.get_adj()), set([s3]))
+        self.assertEquals(s1.get_adj(), {s3,s2})
 
     def build_nfa(self):
         # ( a+ | b(a|b) )
@@ -48,7 +48,7 @@ class TestAutomaton(unittest.TestCase):
     def test_NFA(self):
         nfa = self.build_nfa()
 
-        s1 = nfa.start
+        s1 = nfa.get_start_state()
         s2 = s1.get_transition("a")
         s3 = s1.get_null_transitions()[0]
         s4 = s3.get_transition("b")
@@ -64,14 +64,12 @@ class TestAutomaton(unittest.TestCase):
         self.assertEquals(len(nfa.get_accept_states()), 3)
 
         # null closure methods
-        self.assertEquals(nfa.null_closure(s1), set([s1,s3]))
-        self.assertEquals(nfa.null_closure_states(set([s1,s4])),
-            set([s1,s3,s4,s6]))
+        self.assertEquals(nfa.null_closure({s1}), {s1,s3})
+        self.assertEquals(nfa.null_closure({s1,s4}), {s1,s3,s4,s6})
 
         # transition methods
-        self.assertEquals(nfa.transition(s1,"a"), s2)
-        self.assertEquals(nfa.transition_states(set([s1,s2,s3,s4]), "a"),
-                set([s2,s5]))
+        self.assertEquals(nfa.transition({s1},"a"), {s2})
+        self.assertEquals(nfa.transition({s1,s2,s3,s4},"a"), {s2,s5})
 
     def test_DFA(self):
         pass

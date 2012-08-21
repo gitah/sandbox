@@ -15,6 +15,8 @@
 #   - implement NFA -> DFA algorithm
 # http://web.cecs.pdx.edu/~harry/compilers/slides/LexicalPart3.pdf
 
+from automaton import NFA, DFA
+
 #---- Constants ----#
 unary_ops = ["*","+","?"]
 binary_ops = ["|", "&"]
@@ -30,140 +32,6 @@ escape = "\\"
 misc = ["^","$", "\\s", "\\w"]
 
 
-#---- Classes ----#
-class State:
-    """A state in the automaton"""
-    def __init__(self, start=False, accept=False):
-        self.start = start
-        self.accept = accept
-        self.transitions = {}
-        self.transitions["null"]
-
-    def add_transition(self, v2, trans=None):
-        if not trans:
-            self.transitions["null"] = v2
-        else:
-            self.transition[trans] = v2
-
-    def is_start(self):
-        return self.start
-
-    def is_accept(self):
-        return self.accept
-
-    def get_adj(self):
-        return self.transitions.items()
-
-    def set_accept(self, accept):
-        self.accept = bool(accept)
-
-    def __str__(self):
-        def vid(v):
-            return str(id(v))[-3:]
-        format_str = "%s (start: %s, accept: %s): t[%s]"
-
-        trans = ["%s->%s"%(t,vid(n)) for t,n in self.transitions.iteritems()]
-        return format_str % (vid(self),self.is_accept(),self.is_start(),
-                ",".join(trans))
-
-class NFA():
-    """Non-deterministic finite automaton"""
-    def __init__(self,start_state):
-        self.start = start_state
-
-    def get_accept_states(self):
-        """Returns a list of the accept states"""
-        accept_states = []
-        def count_accept(v):
-            if v.is_accept():
-                accept_states.append(v)
-        self.dfs(count_accept)
-        return accept_vertices
-
-    def dfs(self, op):
-        """Preforms depth-first search on graph and running function 'op' on
-        each of the visited verticies"""
-        def dfs_recur(v):
-            op(v)
-            v._visited = True
-            for u in v.get_adj():       
-                if not hasattr(u, "_visited"):
-                    dfs_recur(u)
-
-        def reset_visited(v):
-            delattr(v, "_visited")
-            for u in v.get_adj():
-                if hasattr(u,"_visited"):
-                    reset_visited(u)
-
-        dfs_recur(self.start)
-        reset_visited(self.start)
-
-    def __str__(self):
-        out = []
-        def vid(v):
-            return str(id(v))[-3:]
-
-        def print_v(v):
-            out.add(str(v))
-        self.dfs(lambda v: out.append(str(v)))
-        return "\n".join(out)
-
-    # These are static constructor methods for building NFAs
-    @staticmethod
-    def build_singleton_nfa(transition):
-        """The simplest NFA for a single character
-            
-            Returns NFA
-                V: {start, end}
-                E: {(start, end, transition)}
-        """
-        start = State(start=True)
-        acc = State(accept=True)
-        start.connect(acc, transition)
-        return NFA(start)
-
-    #Binary Operators
-    @staticmethod
-    def build_concat_nfa(nfa1, nfa2):
-        """Joins two NFA together to implement the & operator"""
-        start2 = nfa2.start
-        for acc in nfa1.get_accept_states():
-            acc.add_transition(start2, None)
-            acc.set_accept(False)
-        return NFA(nfa1.start)
-
-    @staticmethod
-    def build_or_nfa(nfa1, nfa2):
-        """Joins two NFA together to implement the | operator"""
-        start1 = nfa1.start
-        start2 = nfa2.start
-        start1.add_transition(start2, None)
-        return NFA(nfa1.start)
-
-    #Unary Operators
-    @staticmethod
-    def build_star_nfa(nfa):
-        """Returns a modified version of the nfa to implement the * operator"""
-        plus_nfa = NFA.build_plus_nfa(nfa)
-        nfa.start.accept = True    
-        return NFA(nfa.start)
-
-    @staticmethod
-    def build_plus_nfa(nfa):
-        """Returns a modified version of the nfa to implement the + operator"""
-        # get all accept vertices V_a
-        # for v_a in V_a: add edge from v_a to v_start
-        for acc in nfa.get_accept_states():
-            acc.add_transition(nfa.start, None)
-        return NFA(nfa.start)
-
-    @staticmethod
-    def build_question_nfa(nfa):
-        """Returns a modified version of the nfa to implement the ? operator"""
-        opt_node = Vertex(accept=True)
-        nfa.start.add_transition(opt_node, None)
-        return NFA(nfa.start)
 
 #---- Regex -> Postfix ----#
 def regex_to_array(myregex):
@@ -272,27 +140,77 @@ def nfa(post_regex):
     stack = []
     for c in regex_arr:
         if c not in operators:
-            stack.append(NFA.build_singleton_nfa(c))
+            stack.append(build_singleton_nfa(c))
         elif c in binary_ops:
             e2 = stack.pop()
             e1 = stack.pop()
 
             if c == '&':
-                stack.append(NFA.build_concat_nfa(e1,e2))
+                stack.append(build_concat_nfa(e1,e2))
             elif c == '|':
-                stack.append(NFA.build_or_nfa(e1,e2))
+                stack.append(build_or_nfa(e1,e2))
 
         elif c in unary_ops:
             e1 = stack.pop()
 
             if c == '*':
-                stack.append(NFA.build_star_nfa(e1))
+                stack.append(build_star_nfa(e1))
             elif c == '+':
-                stack.append(NFA.build_plus_nfa(e1))
+                stack.append(build_plus_nfa(e1))
             elif c == '?':
-                stack.append(NFA.build_question_nfa(e1))
+                stack.append(build_question_nfa(e1))
 
     return stack.pop()
+
+# These are static constructor methods for building NFAs
+def build_singleton_nfa(transition):
+    """The simplest NFA for a single character
+        
+        Returns NFA
+            V: {start, end}
+            E: {(start, end, transition)}
+    """
+    start = State(start=True)
+    acc = State(accept=True)
+    start.connect(acc, transition)
+    return NFA(start)
+
+#Binary Operators
+def build_concat_nfa(nfa1, nfa2):
+    """Joins two NFA together to implement the & operator"""
+    start2 = nfa2.start
+    for acc in nfa1.get_accept_states():
+        acc.add_transition(start2, None)
+        acc.set_accept(False)
+    return NFA(nfa1.start)
+
+def build_or_nfa(nfa1, nfa2):
+    """Joins two NFA together to implement the | operator"""
+    start1 = nfa1.start
+    start2 = nfa2.start
+    start1.add_transition(start2, None)
+    return NFA(nfa1.start)
+
+#Unary Operators
+def build_star_nfa(nfa):
+    """Returns a modified version of the nfa to implement the * operator"""
+    plus_nfa = NFA.build_plus_nfa(nfa)
+    nfa.start.accept = True    
+    return NFA(nfa.start)
+
+def build_plus_nfa(nfa):
+    """Returns a modified version of the nfa to implement the + operator"""
+    # get all accept vertices V_a
+    # for v_a in V_a: add edge from v_a to v_start
+    for acc in nfa.get_accept_states():
+        acc.add_transition(nfa.start, None)
+    return NFA(nfa.start)
+
+def build_question_nfa(nfa):
+    """Returns a modified version of the nfa to implement the ? operator"""
+    opt_node = Vertex(accept=True)
+    nfa.start.add_transition(opt_node, None)
+    return NFA(nfa.start)
 
 #---- NFA -> DFA ----#
 #TODO
