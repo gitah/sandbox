@@ -17,6 +17,9 @@ class State(object):
     def get_adj(self):
         return {v for k,v in self.transitions.items()}
 
+    def get_transition(self, trans):
+        return self.transitions.get(trans, None)
+
     def get_transition_values(self):
         return {k for k,v in self.transitions.items()}
 
@@ -48,9 +51,6 @@ class NFAState(State):
         return super(NFAState,self).get_adj() | \
                 set(self.get_null_transitions())
 
-    def get_transition(self, trans):
-        return self.transitions.get(trans, None)
-
     def get_null_transitions(self):
         return self.null_transitions
 
@@ -81,6 +81,12 @@ class Automaton(object):
                 accept_states.append(v)
         self._dfs(count_accept)
         return accept_states
+
+    def get_states(self):
+        """returns a list of states in the Automaton"""
+        states = []
+        self._dfs(lambda v: states.append(v))
+        return states
 
     def _dfs(self, op):
         # Preforms depth-first search on Automaton 
@@ -166,19 +172,18 @@ class NFA(Automaton):
         #add transitions to DFA
         while unmarked:
             curr_dfa_state = unmarked.pop()
-            print curr_dfa_state
             curr_nfa_substates = curr_dfa_state.get_substates()
             for trans in self.transition_values(curr_nfa_substates):
-                trans_nfa_states = self.null_closure(
+                trans_nfa_substates = self.null_closure(
                     self.transition(curr_nfa_substates, trans))
-                
-                if not dfa.in_dfa(trans_nfa_states):
-                    trans_dfa_state = DFAState(substates=curr_nfa_substates)
-                    curr_dfa_state.add_transition(trans_dfa_state, trans)
+                trans_dfa_state = dfa.get_state_by_substate(trans_nfa_substates)
+                if not trans_dfa_state:
+                    trans_dfa_state = DFAState(substates=trans_nfa_substates)
                     unmarked.append(trans_dfa_state)
+                curr_dfa_state.add_transition(trans_dfa_state, trans)
 
         # set accept states in dfa
-        for s in nfa.get_states():
+        for s in dfa.get_states():
             for sub in s.get_substates():
                 if sub.is_accept():
                     s.set_accept(True)
@@ -189,14 +194,9 @@ class DFA(Automaton):
     def __init__(self, start_state):
         super(DFA,self).__init__(start_state)
 
-    def in_dfa(self, nfa_states):
-        """ true if the DFA has a state that represents the given set of
-        NFAStates"""
-        # don't understand fully how closures work in python, 
-        # so I'm resorting to this shameful hack
-        match = []
-        def find_match(v):
-            if v.get_substates() == nfa_states:
-                match.append(True)
-        self._dfs(find_match)
-        return bool(match)
+    def get_state_by_substate(self, nfa_substates):
+        """ returns the state that has the given NFA substate """
+        for s in self.get_states():
+            if s.get_substates() == nfa_substates:
+                return s
+        return None

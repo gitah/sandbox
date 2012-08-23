@@ -84,8 +84,8 @@ class TestAutomaton(unittest.TestCase):
         self.assertEquals(t.get_substates(), {s1,s2,s3})
 
         dfa = DFA(t)
-        self.assertFalse(dfa.in_dfa({s1,s2}))
-        self.assertTrue(dfa.in_dfa({s1,s2,s3}))
+        self.assertFalse(dfa.get_state_by_substate({s1,s2}))
+        self.assertTrue(dfa.get_state_by_substate({s1,s2,s3}), t)
 
     def test_NFA_to_DFA(self):
         nfa = self.build_nfa()
@@ -99,13 +99,13 @@ class TestAutomaton(unittest.TestCase):
 
         dfa = nfa.to_dfa()
         d1 = dfa.get_start_state()
-        d2 = d1.transition("a")
-        d3 = d1.transition("b")
-        d4 = d3.transition("a")
-        d5 = d3.transition("b")
+        d2 = d1.get_transition("a")
+        d3 = d1.get_transition("b")
+        d4 = d3.get_transition("a")
+        d5 = d3.get_transition("b")
 
         self.assertTrue(d1 and d2 and d3 and d4 and d5)
-        self.assertEquals(d2.transition("a"), d2)
+        self.assertEquals(d2.get_transition("a"), d2)
         self.assertEquals(d1.get_substates(), {s1,s3})
         self.assertEquals(d2.get_substates(), {s2})
         self.assertEquals(d3.get_substates(), {s4,s6})
