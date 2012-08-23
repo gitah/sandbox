@@ -15,7 +15,7 @@
 #   - implement NFA -> DFA algorithm
 # http://web.cecs.pdx.edu/~harry/compilers/slides/LexicalPart3.pdf
 
-from automaton import NFA, DFA
+from automaton import NFAState, NFA, DFA
 
 #---- Constants ----#
 unary_ops = ["*","+","?"]
@@ -60,13 +60,8 @@ def postfix(myregex):
         ((a|b)*aba*)*(a|b)(a|b) -> ab|*a&b&a*&*ab|&ab|&
         (a|b)+@vic\.(ca|com) -> ab|+@&uU|&v&i&c&\.&ca&co&m&|&
     """
-
     regex_arr = regex_to_array(myregex)
-    #print "[%s]" % ",".join(regex_arr)
-
     return postfix_recur(0,regex_arr)
-
-
 
 def postfix_recur(start_index, regex_arr):
     def pop_stacks(exp_stack,op_stack):
@@ -134,7 +129,7 @@ def postfix_recur(start_index, regex_arr):
     return pop_stacks(exp_stack, op_stack) 
 
 #---- Postfix -> NFA ----#
-def nfa(post_regex):
+def postfix_to_nfa(post_regex):
     regex_arr = regex_to_array(post_regex)
     
     stack = []
@@ -170,9 +165,9 @@ def build_singleton_nfa(transition):
             V: {start, end}
             E: {(start, end, transition)}
     """
-    start = State(start=True)
-    acc = State(accept=True)
-    start.connect(acc, transition)
+    start = NFAState(start=True)
+    acc = NFAState(accept=True)
+    start.add_transition(acc, transition)
     return NFA(start)
 
 #Binary Operators
@@ -194,7 +189,7 @@ def build_or_nfa(nfa1, nfa2):
 #Unary Operators
 def build_star_nfa(nfa):
     """Returns a modified version of the nfa to implement the * operator"""
-    plus_nfa = NFA.build_plus_nfa(nfa)
+    plus_nfa = build_plus_nfa(nfa)
     nfa.start.accept = True    
     return NFA(nfa.start)
 
@@ -212,75 +207,35 @@ def build_question_nfa(nfa):
     nfa.start.add_transition(opt_node, None)
     return NFA(nfa.start)
 
-#---- NFA -> DFA ----#
-#TODO
-def nfa_to_dfa(nfa):
-    start = null_closure(nfa.start)
-    for inp in inputs:
-        start.add_transition(null_set_closure(nfa_transition(start, inp)))
-
-    pass
-
-def set_trans(states, alph):
-    """returns list of states Q where for 
-        q in Q, and s in states,
-        
-    # Called during postfix parsing
-    # Called during postfix parsing
-    # Called during postfix parsing
-        Tr_nfa(s,alph) = q
-    """
-    pass
-
-def nfa_transition(states, inp):
-    """Takes a set of states and a input and returns the set of next states states"""
-    new_states = set()
-    for v in states:
-        for e in v.edges:
-            if e.transition == inp:
-                new_states.add(e.target)
-    return new_states
-
-
-def null_closure(state):
-    """state is a vertex from NFA, returns null_closure of state"""
-    pass
-
-def null_set_closure(states):
-    """states set of substates from NFA, returns null_closure of states"""
-    pass
-
 #---- Utility ----#
-def _walk_dfa(dfa, mystr):
-    curr_node = dfa.start
-    curr_letter = 0         # Letter in mystring
-    while not curr_node.accept:
-        transition_flag = False
-        for edge in curr_node.edges:
-            if edge.transition == mystr[curr_letter]:
-                curr_node = edge.end
-                curr_letter += 1
-                transition_flag = True
-                break
+def _walk_dfa(dfa, inp):
+    curr_state = dfa.get_start_state()
 
-        if not transition_flag:
+    #TODO: take into account backslash escape char
+    for c in inp:
+        next_state = curr_state.get_transition(c)
+        if not next_state:
             return False
-        if curr_letter == len(mystr)-1:
-            return curr_node.accept
+        curr_state = next_state
+    
+    return curr_state.is_accept()
 
 #---- Public Interface ----#
-def match(myregex, mystr):
+def match(myregex, inp):
     # Convert to postfix for easier parsing
     post_regex = postfix(myregex)
 
     # Turn to NFA
-    nfa = dfa(post_regex)
+    nfa = postfix_to_nfa(post_regex)
+
+    #print inp
+    #print nfa
 
     # Turn to DFA
-    dfa = nfa_to_dfa(nfa)
+    dfa = nfa.to_dfa()
 
     # Walk DFA
-    return _walk_dfa(dfa, mystr)
+    return _walk_dfa(dfa, inp)
 
 #---- Tests ----#
 if __name__ == "__main__":

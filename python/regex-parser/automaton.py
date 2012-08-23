@@ -32,7 +32,7 @@ class State(object):
         format_str = "%s (start: %s, accept: %s): t[%s]"
 
         trans = ["%s->%s"%(t,vid(n)) for t,n in self.transitions.iteritems()]
-        return format_str % (vid(self),self.is_accept(),self.is_start(),
+        return format_str % (vid(self),self.is_start(),self.is_accept(),
                 ",".join(trans))
 
 class NFAState(State):
@@ -53,6 +53,13 @@ class NFAState(State):
 
     def get_null_transitions(self):
         return self.null_transitions
+
+    def __str__(self):
+        def vid(v):
+            return str(id(v))[-3:]
+        null_trans = "nt[%s]" % ",".join(
+                [vid(v) for v in self.get_null_transitions()])
+        return "%s %s" % (super(NFAState,self).__str__(), null_trans)
 
 class DFAState(State):
     """Represents a state in a DFA"""

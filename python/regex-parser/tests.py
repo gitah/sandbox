@@ -1,5 +1,6 @@
 import unittest
 from automaton import State, NFAState, NFA, DFAState, DFA
+import regex as re
 
 class TestAutomaton(unittest.TestCase):
     def setUp(self):
@@ -112,6 +113,67 @@ class TestAutomaton(unittest.TestCase):
         self.assertEquals(d4.get_substates(), {s5})
         self.assertEquals(d5.get_substates(), {s7})
 
+class RegexParserTestCase(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def get_input_cases(self):
+        t1 =  r"ab"
+        t2 =  r"(a|b)"
+        t3 =  r"(a|b)a+"
+        t4 =  r"(a|b)*cd"
+        t5 =  r"(a|b)*fo\+"
+        t6 =  r"((a|b)*aba*)*(a|b)(a|b)"
+        t7 =  r"(a|b)+@vic\.(ca|com)"
+        return (t1,t2,t3,t4,t5,t6,t7)
+
+    def test_postfix(self):
+        t1,t2,t3,t4,t5,t6,t7 = self.get_input_cases()
+        self.assertEquals(re.postfix(t1), "ab&")
+        self.assertEquals(re.postfix(t2), "ab|")
+        self.assertEquals(re.postfix(t3), "ab|a+&")
+        self.assertEquals(re.postfix(t4), "ab|*c&d&")
+        self.assertEquals(re.postfix(t5), "ab|*f&o&\+&")
+
+    def test_nfa(self):
+        t1,t2,t3,t4,t5,t6,t7 = self.get_input_cases()
+        nfa1 = re.postfix_to_nfa(re.postfix(t1))
+        nfa2 = re.postfix_to_nfa(re.postfix(t2))
+        nfa3 = re.postfix_to_nfa(re.postfix(t3))
+        nfa4 = re.postfix_to_nfa(re.postfix(t4))
+        nfa5 = re.postfix_to_nfa(re.postfix(t5))
+
+        self.assertEquals(len(nfa1.get_accept_states()), 1)
+        self.assertEquals(len(nfa2.get_accept_states()), 2)
+        self.assertEquals(len(nfa3.get_accept_states()), 1)
+        self.assertEquals(len(nfa4.get_accept_states()), 1)
+        self.assertEquals(len(nfa5.get_accept_states()), 1)
+
+    def test_match(self):
+        t1,t2,t3,t4,t5,t6,t7 = self.get_input_cases()
+
+        self.assertTrue(re.match(t1, "ab"))
+        self.assertFalse(re.match(t1, "ba"))
+
+        self.assertTrue(re.match(t2, "a"))
+        self.assertTrue(re.match(t2, "b"))
+        self.assertFalse(re.match(t2, "ab"))
+
+        self.assertTrue(re.match(t3, "aa"))
+        self.assertTrue(re.match(t3, "ba"))
+        self.assertTrue(re.match(t3, "aaaaaaaaaaaaa"))
+        self.assertFalse(re.match(t3, "a"))
+        self.assertFalse(re.match(t3, "aaaaab"))
+
+        self.assertTrue(re.match(t4, "aabababbacd"))
+        self.assertTrue(re.match(t4, "cd"))
+        self.assertFalse(re.match(t4, "abaa"))
+        self.assertFalse(re.match(t4, "bbbbc"))
+
+        self.assertTrue(re.match(t5, r"baafo\+"))
+        self.assertFalse(re.match(t5, "baafo+"))
+
+        self.assertTrue(re.match(t7, r"ab@vic\.ca"))
 
 if __name__ == "__main__":
     unittest.main()
