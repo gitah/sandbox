@@ -70,7 +70,7 @@ class TestAutomaton(unittest.TestCase):
         # transition methods
         self.assertEquals(nfa.transition({s1},"a"), {s2})
         self.assertEquals(nfa.transition({s1,s2,s3,s4},"a"), {s2,s5})
-        #TODO: explicit_transitions
+        self.assertEquals(nfa.transition_values({s1,s2,s3}), {"a","b"})
 
     def test_DFA(self):
         s1 = NFAState()
@@ -84,12 +84,33 @@ class TestAutomaton(unittest.TestCase):
         self.assertEquals(t.get_substates(), {s1,s2,s3})
 
         dfa = DFA(t)
-        self.assertTrue(dfa.in_dfa(s1))
-        self.assertFalse(dfa.in_dfa(s2))
+        self.assertFalse(dfa.in_dfa({s1,s2}))
+        self.assertTrue(dfa.in_dfa({s1,s2,s3}))
 
     def test_NFA_to_DFA(self):
         nfa = self.build_nfa()
-        self.fail("not implemented yet")
+        s1 = nfa.get_start_state()
+        s2 = s1.get_transition("a")
+        s3 = s1.get_null_transitions()[0]
+        s4 = s3.get_transition("b")
+        s5 = s4.get_transition("a")
+        s6 = s4.get_null_transitions()[0]
+        s7 = s6.get_transition("b")
+
+        dfa = nfa.to_dfa()
+        d1 = dfa.get_start_state()
+        d2 = d1.transition("a")
+        d3 = d1.transition("b")
+        d4 = d3.transition("a")
+        d5 = d3.transition("b")
+
+        self.assertTrue(d1 and d2 and d3 and d4 and d5)
+        self.assertEquals(d2.transition("a"), d2)
+        self.assertEquals(d1.get_substates(), {s1,s3})
+        self.assertEquals(d2.get_substates(), {s2})
+        self.assertEquals(d3.get_substates(), {s4,s6})
+        self.assertEquals(d4.get_substates(), {s5})
+        self.assertEquals(d5.get_substates(), {s7})
 
 
 if __name__ == "__main__":

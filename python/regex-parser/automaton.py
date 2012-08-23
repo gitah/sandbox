@@ -6,7 +6,7 @@ class State(object):
         self.transitions = {}
 
     def add_transition(self, v2, trans=None):
-            self.transitions[trans] = v2
+        self.transitions[trans] = v2
 
     def is_start(self):
         return self.start
@@ -16,6 +16,9 @@ class State(object):
 
     def get_adj(self):
         return {v for k,v in self.transitions.items()}
+
+    def get_transition_values(self):
+        return {k for k,v in self.transitions.items()}
 
     def set_accept(self, accept):
         self.accept = bool(accept)
@@ -76,16 +79,10 @@ class Automaton(object):
         def count_accept(v):
             if v.is_accept():
                 accept_states.append(v)
-        self.__dfs(count_accept)
+        self._dfs(count_accept)
         return accept_states
 
-    def get_states(self):
-        """returns a set containing all states in the Automaton"""
-        #TODO
-        raise NotImplementedError()
-
-
-    def __dfs(self, op):
+    def _dfs(self, op):
         # Preforms depth-first search on Automaton 
         # executes function 'op' on each of the visited states
         def dfs_recur(v):
@@ -111,7 +108,7 @@ class Automaton(object):
 
         def print_v(v):
             out.add(str(v))
-        self.__dfs(lambda v: out.append(str(v)))
+        self._dfs(lambda v: out.append(str(v)))
         return "\n".join(out)
 
 class NFA(Automaton):
@@ -133,7 +130,7 @@ class NFA(Automaton):
 
         nc = set()
         for s in states:
-            nc = nc | null_closure_single(s)
+            nc |= null_closure_single(s)
         return nc
 
     def transition(self, states, trans):
@@ -147,33 +144,38 @@ class NFA(Automaton):
                 next_states.add(nxt)
         return next_states
 
-    def __explicit_transitions(self, states):
+    def transition_values(self, states):
         """ returns all alphabet values that have transitions defined in the
         given set of NFAStates"""
-        #TODO
-        raise NotImplementedError()
+        vals = set()
+        for s in states:
+            vals |= s.get_transition_values()
+        return vals
 
     def to_dfa(self):
         """converts this NFA to a DFA and returns it"""
+        #TODO: get test_NFA_to_DFA to pass
         # get start state
-        start_substates = self.null_closure(self.get_start_state())
+        start_substates = self.null_closure({self.get_start_state()})
         dfa_start = DFAState(start=True, accept=False, substates=start_substates)
+
         # create dfa with start state
-        dfa = DFA(nfa_start)
-        unmarked = [nfa_start]
+        dfa = DFA(dfa_start)
+        unmarked = [dfa_start]
 
         #add transitions to DFA
         while unmarked:
             curr_dfa_state = unmarked.pop()
+            print curr_dfa_state
             curr_nfa_substates = curr_dfa_state.get_substates()
-            for trans in self.__explicit_transitions(curr_nfa_substates):
-                trans_nfa_states = null_closure(
-                    self.transitions(curr_nfa_substates, trans))
+            for trans in self.transition_values(curr_nfa_substates):
+                trans_nfa_states = self.null_closure(
+                    self.transition(curr_nfa_substates, trans))
                 
                 if not dfa.in_dfa(trans_nfa_states):
                     trans_dfa_state = DFAState(substates=curr_nfa_substates)
                     curr_dfa_state.add_transition(trans_dfa_state, trans)
-                    umarked.append(trans_dfa_state)
+                    unmarked.append(trans_dfa_state)
 
         # set accept states in dfa
         for s in nfa.get_states():
@@ -181,6 +183,7 @@ class NFA(Automaton):
                 if sub.is_accept():
                     s.set_accept(True)
                     continue
+        return dfa
 
 class DFA(Automaton):
     def __init__(self, start_state):
@@ -189,8 +192,11 @@ class DFA(Automaton):
     def in_dfa(self, nfa_states):
         """ true if the DFA has a state that represents the given set of
         NFAStates"""
-        #TODO
-        raise NotImplementedError()
-        raise NotImplementedError()
-        raise NotImplementedError()
-        pass
+        # don't understand fully how closures work in python, 
+        # so I'm resorting to this shameful hack
+        match = []
+        def find_match(v):
+            if v.get_substates() == nfa_states:
+                match.append(True)
+        self._dfs(find_match)
+        return bool(match)
