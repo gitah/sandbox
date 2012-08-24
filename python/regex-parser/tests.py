@@ -118,25 +118,28 @@ class RegexParserTestCase(unittest.TestCase):
         pass
 
     def get_input_cases(self):
-        t1 =  r"ab"
-        t2 =  r"(a|b)"
-        t3 =  r"(a|b)a+"
-        t4 =  r"(a|b)*cd"
-        t5 =  r"(a|b)*fo\+"
-        t6 =  r"((a|b)*aba*)*(a|b)(a|b)"
-        t7 =  r"(a|b)+@vic\.(ca|com)"
-        return (t1,t2,t3,t4,t5,t6,t7)
+        t1 = r"ab"
+        t2 = r"(a|b)"
+        t3 = r"(a|b)a+"
+        t4 = r"(a|b)*cd"
+        t5 = r"(a|b)*fo\+"
+        t6 = r"((a|b)*aba*)*(a|b)(a|b)"
+        t7 = r"(a|b)+@vic\.(ca|com)"
+        t8 = r"(abc)(def)+"
+        return (t1,t2,t3,t4,t5,t6,t7,t8)
 
     def test_postfix(self):
-        t1,t2,t3,t4,t5,t6,t7 = self.get_input_cases()
+        t1,t2,t3,t4,t5,t6,t7,t8 = self.get_input_cases()
         self.assertEquals(re.postfix(t1), "ab&")
         self.assertEquals(re.postfix(t2), "ab|")
         self.assertEquals(re.postfix(t3), "ab|a+&")
-        self.assertEquals(re.postfix(t4), "ab|*c&d&")
-        self.assertEquals(re.postfix(t5), "ab|*f&o&\+&")
+        self.assertEquals(re.postfix(t4), "ab|*cd&&")
+        self.assertEquals(re.postfix(t5), "ab|*fo\+&&&")
+        self.assertEquals(re.postfix(t7), "ab|+@vic\\.ca&com&&|&&&&&&")
+        self.assertEquals(re.postfix(t8), "abc&&def&&+&")
 
     def test_nfa(self):
-        t1,t2,t3,t4,t5,t6,t7 = self.get_input_cases()
+        t1,t2,t3,t4,t5,t6,t7,t8 = self.get_input_cases()
         nfa1 = re.postfix_to_nfa(re.postfix(t1))
         nfa2 = re.postfix_to_nfa(re.postfix(t2))
         nfa3 = re.postfix_to_nfa(re.postfix(t3))
@@ -150,7 +153,7 @@ class RegexParserTestCase(unittest.TestCase):
         self.assertEquals(len(nfa5.get_accept_states()), 1)
 
     def test_match(self):
-        t1,t2,t3,t4,t5,t6,t7 = self.get_input_cases()
+        t1,t2,t3,t4,t5,t6,t7,t8 = self.get_input_cases()
 
         self.assertTrue(re.match(t1, "ab"))
         self.assertFalse(re.match(t1, "ba"))

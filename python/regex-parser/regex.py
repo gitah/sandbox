@@ -9,11 +9,14 @@
 #   2. convert <regex> to <postfix>
 #   3. Build <NFA> from <postfix>
 #   4. Convert <NFA> to <DFA>
+#       see: http://web.cecs.pdx.edu/~harry/compilers/slides/LexicalPart3.pdf
 #   5. use <DFA> to match <regex> with <string>
 
 #TODO:
-#   - implement NFA -> DFA algorithm
-# http://web.cecs.pdx.edu/~harry/compilers/slides/LexicalPart3.pdf
+#   implement character classes, ".", ^/$
+#   implement regex.search (along with ^/$ symbols)
+#   implement regex.findall
+#   think about greedy/non-greedy match
 
 from automaton import NFAState, NFA, DFA
 
@@ -34,22 +37,6 @@ misc = ["^","$", "\\s", "\\w"]
 
 
 #---- Regex -> Postfix ----#
-def regex_to_array(myregex):
-    """Turns regex into array and adds & operator where appropriate"""
-    regex_arr = []
-    # First pass turn regex to an array
-    escape_flag = False
-    for c in myregex:
-        if escape_flag:
-            regex_arr.append('\\'+c)
-            escape_flag = False
-        elif c == '\\':
-            escape_flag = True
-        else:
-            regex_arr.append(c)
-
-    return regex_arr
-
 def postfix(myregex):
     """ Converts infix notation regex to postfix notation regex
         
@@ -61,72 +48,50 @@ def postfix(myregex):
         (a|b)+@vic\.(ca|com) -> ab|+@&uU|&v&i&c&\.&ca&co&m&|&
     """
     regex_arr = regex_to_array(myregex)
-    return postfix_recur(0,regex_arr)
+    return postfix_recur(regex_arr)[0]
 
-def postfix_recur(start_index, regex_arr):
-    def pop_stacks(exp_stack,op_stack):
-        # Process operators
-        while op_stack:
-            op = op_stack.pop()
-            assert op in binary_ops
+def postfix_recur(arr,start=0,in_brackets=False):
+    stack = [] # stores subexpressions
+    def stack_to_postfix():
+        while len(stack) > 1:
+            e2, e1 = stack.pop(), stack.pop()
+            e = e1 + e2 + "&" 
+            stack.append(e)
+        return stack.pop()
 
-            e1 = exp_stack.pop()
-            e2 = exp_stack.pop()
-            new_exp = e2+e1+op
-            exp_stack.append(new_exp)
+    i = start  # the current token we're on
+    # iterate through each token of the regex
+    while i < len(arr):
+        tok = arr[i]
+        # do different things depending on the type of token
+        if tok in binary_ops:
+            if len(stack) == 0:
+                raise ValueError("bad regex: %s" % "".join(arr))
+            e1 = stack_to_postfix()
+            e2, i2 = postfix_recur(arr, i+1, in_brackets)
+            if not e1 or not e2:
+                raise ValueError("bad regex: %s" % "".join(arr))
+            stack.append(e1 + e2 + tok)
+            i = i2-1 # we want to revisit the token we terminated at
+        elif tok in unary_ops:
+            if len(stack) == 0:
+                raise ValueError("bad regex: %s" % "".join(arr))
+            e = stack.pop()
+            stack.append(e+tok)
+        elif tok == "(":
+            e, i2 = postfix_recur(arr, i+1, True)
+            stack.append(e)
+            i = i2
+        elif tok == ")":
+            if not in_brackets:
+                raise ValueError("bad regex: %s" % "".join(arr))
+            return stack_to_postfix(), i
+        else: #normal character
+            stack.append(tok)
+        i += 1
 
-        # Concat remaining expressions
-        while len(exp_stack) > 1:
-            e2 = exp_stack.pop()
-            e1 = exp_stack.pop()
-            exp_stack.append(e1+e2+"&")
+    return stack_to_postfix(), i
 
-        assert len(op_stack) == 0
-        assert len(exp_stack) == 1
-
-        return exp_stack.pop()
-
-    skip_flag = False
-    exp_stack = []
-    op_stack = []
-
-    for i in xrange(start_index,len(regex_arr)):
-        c = regex_arr[i]
-        if c == ')':
-            if not skip_flag:
-                return pop_stacks(exp_stack, op_stack) 
-            else: 
-                skip_flag = False
-
-        elif skip_flag:
-            continue
-
-        elif c == '(':
-            e1 = postfix_recur(i+1,regex_arr)
-            exp_stack.append(e1)
-            skip_flag = True;
-
-        elif c in operators:
-            # NOTE: I'm assuming there's no precedence in regex operators
-            # not sure if this is true though
-            op = c
-            if op in unary_ops:
-                e1 = exp_stack.pop()
-                new_exp = e1+op
-                exp_stack.append(new_exp)
-            elif op in binary_ops:
-                op_stack.append(op)
-        else:
-            if len(exp_stack) > 1:
-                e2 = exp_stack.pop()
-                e1 = exp_stack.pop()
-                exp_stack.append(e1+e2+'&')
-            exp_stack.append(c)
-
-    if skip_flag:
-        raise Error("unmatching brackets")
-
-    return pop_stacks(exp_stack, op_stack) 
 
 #---- Postfix -> NFA ----#
 def postfix_to_nfa(post_regex):
@@ -208,16 +173,29 @@ def build_question_nfa(nfa):
     return NFA(nfa.start)
 
 #---- Utility ----#
+def _tokenize(s):
+    escape = False
+    for c in s:
+        if escape:
+            escape = False
+            yield "\\" + c
+        elif c == '\\':
+            escape = True
+        else:
+            yield c
+
+def regex_to_array(myregex):
+    """Turns regex into array"""
+    return list(_tokenize(myregex))
+
+
 def _walk_dfa(dfa, inp):
     curr_state = dfa.get_start_state()
-
-    #TODO: take into account backslash escape char
-    for c in inp:
+    for c in _tokenize(inp):
         next_state = curr_state.get_transition(c)
         if not next_state:
             return False
         curr_state = next_state
-    
     return curr_state.is_accept()
 
 #---- Public Interface ----#
@@ -228,33 +206,8 @@ def match(myregex, inp):
     # Turn to NFA
     nfa = postfix_to_nfa(post_regex)
 
-    #print inp
-    #print nfa
-
     # Turn to DFA
     dfa = nfa.to_dfa()
 
     # Walk DFA
     return _walk_dfa(dfa, inp)
-
-#---- Tests ----#
-if __name__ == "__main__":
-    #t1 =  r"ab"
-    t2 =  r"(a|b)"
-    t3 =  r"(a|b)a+"
-    t4 =  r"(a|b)*cd"
-    t5 =  r"(a|b)*fo\+"
-    t6 =  r"((a|b)*aba*)*(a|b)(a|b)"
-    t7 =  r"(a|b)+@vic\.(ca|com)"
-
-    #print t1, ": ",  postfix(t1)
-    #print t2, ": ",  postfix(t2)
-    #print t3, ": ",  postfix(t3)
-    #print t4, ": ",  postfix(t4)
-    #print t5, ": ",  postfix(t5)
-    #print t6, ": ",  postfix(t6)
-    #print t7, ": ",  postfix(t7)
-
-    print "------"
-    #print nfa(postfix(t1))
-    print nfa(postfix(t2))
