@@ -1,22 +1,8 @@
 # fred-regex.py
 # Author: Fred Song, fsong@xei.ca
 
-# This is my implementation of a regex parser in Python
-# I'm doing this just for fun; do what ever you like with the code
+# A regex parser implementation
 
-# Here is how it works:
-#   1. (<regex>, <string>) is given as input
-#   2. convert <regex> to <postfix>
-#   3. Build <NFA> from <postfix>
-#   4. Convert <NFA> to <DFA>
-#       see: http://web.cecs.pdx.edu/~harry/compilers/slides/LexicalPart3.pdf
-#   5. use <DFA> to match <regex> with <string>
-
-#TODO:
-#   implement ^/$
-#   implement regex.search (along with ^/$ symbols)
-#   implement regex.findall
-#   think about greedy/non-greedy match
 from automaton import NFAState, NFA, DFA
 
 #---- Constants ----#
