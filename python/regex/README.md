@@ -1,7 +1,7 @@
- Introduction
- ============
- This is my implementation of a Regular Expression (regex) parser in Python
- It is implemented using a Discrete Finite Automaton
+Introduction
+============
+This is my implementation of a Regular Expression (regex) parser in Python. It
+is implemented using a Discrete Finite Automaton
 
 Here is how it works:
 
