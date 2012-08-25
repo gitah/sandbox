@@ -123,7 +123,8 @@ class RegexParserTestCase(unittest.TestCase):
         t3 = r"(a|b)a+"
         t4 = r"(a|b)*cd"
         t5 = r"(a|b)*fo\+"
-        t6 = r"((a|b)*aba*)*(a|b)(a|b)"
+        #t6 = r"((a|b)*aba*)*(a|b)(a|b)"
+        t6 = r"\w\w\s[+*]?[5-9]"
         t7 = r"(a|b)+@vic\.(ca|com)"
         t8 = r"(abc)(def)+"
         return (t1,t2,t3,t4,t5,t6,t7,t8)
@@ -135,6 +136,7 @@ class RegexParserTestCase(unittest.TestCase):
         self.assertEquals(re.postfix(t3), "ab|a+&")
         self.assertEquals(re.postfix(t4), "ab|*cd&&")
         self.assertEquals(re.postfix(t5), "ab|*fo\+&&&")
+        self.assertEquals(re.postfix(t6), "\w\w\s[+*]?[5-9]&&&&")
         self.assertEquals(re.postfix(t7), "ab|+@vic\\.ca&com&&|&&&&&&")
         self.assertEquals(re.postfix(t8), "abc&&def&&+&")
 
@@ -175,6 +177,12 @@ class RegexParserTestCase(unittest.TestCase):
 
         self.assertTrue(re.match(t5, r"baafo\+"))
         self.assertFalse(re.match(t5, "baafo+"))
+
+        self.assertTrue(re.match(t6, "xy +7"))
+        self.assertTrue(re.match(t6, "02 *8"))
+        self.assertTrue(re.match(t6, "_D 9"))
+        self.assertFalse(re.match(t6, "Tz +1"))
+        self.assertFalse(re.match(t6, "@y +9"))
 
         self.assertTrue(re.match(t7, r"ab@vic\.ca"))
 
