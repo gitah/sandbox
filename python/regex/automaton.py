@@ -14,8 +14,9 @@ class State(object):
     def is_accept(self):
         return self.accept
 
-    def get_adj(self):
-        return {v for k,v in self.transitions.items()}
+    def adj(self):
+        for k,v in self.transitions.items():
+            yield k,v
 
     def get_transition(self, trans):
         return self.transitions.get(trans, None)
@@ -25,6 +26,16 @@ class State(object):
 
     def set_accept(self, accept):
         self.accept = bool(accept)
+
+    def clone(self):
+        s = type(self)(self.is_start(), self.is_accept())
+        self._clone = s
+        for t,v in self.transitions.items():
+            # this to stop back edges creating infinite recursion
+            nxt = v._clone if hasattr(v,"_clone") else v.clone()
+            s.add_transition(nxt,t)
+        del self._clone
+        return s
 
     def __str__(self):
         def vid(v):
@@ -47,12 +58,20 @@ class NFAState(State):
         else:
             super(NFAState, self).add_transition(v2,trans)
 
-    def get_adj(self):
-        return super(NFAState,self).get_adj() | \
-                set(self.get_null_transitions())
+    def adj(self):
+        for k,v in super(NFAState,self).adj():
+            yield k,v
+        for v in self.get_null_transitions():
+            yield None,v
 
     def get_null_transitions(self):
         return self.null_transitions
+
+    def clone(self):
+        s = super(NFAState,self).clone()
+        for v in self.get_null_transitions():
+            s.add_transition(v.clone())
+        return s
 
     def __str__(self):
         def vid(v):
@@ -95,19 +114,25 @@ class Automaton(object):
         self._dfs(lambda v: states.append(v))
         return states
 
+    def clone(self):
+        """ returns another NFA that is a copy of this one """
+        start = self.get_start_state().clone()
+        return type(self)(start)
+
     def _dfs(self, op):
         # Preforms depth-first search on Automaton 
         # executes function 'op' on each of the visited states
         def dfs_recur(v):
             op(v)
             v._visited = True
-            for u in v.get_adj():       
+            for trans,u in v.adj():       
+                assert u
                 if not hasattr(u, "_visited"):
                     dfs_recur(u)
 
         def reset_visited(v):
             delattr(v, "_visited")
-            for u in v.get_adj():
+            for trans,u in v.adj():
                 if hasattr(u,"_visited"):
                     reset_visited(u)
 
@@ -196,6 +221,7 @@ class NFA(Automaton):
                     s.set_accept(True)
                     continue
         return dfa
+
 
 class DFA(Automaton):
     def __init__(self, start_state):

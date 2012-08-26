@@ -2,11 +2,12 @@
 # Author: Fred Song, fsong@xei.ca
 
 # A regex parser implementation
+#TODO: write tests for quanitfier{m,n} and anchors (^, $)
 
 from automaton import NFAState, NFA, DFA
 
 #---- Constants ----#
-unary_ops = ["*","+","?"]
+unary_ops = ["*","+","?","{"]
 binary_ops = ["|", "&"]
 operators = unary_ops + binary_ops
 letters = [
@@ -88,26 +89,28 @@ def postfix_to_nfa(post_regex):
     
     stack = []
     for c in regex_arr:
-        if c not in operators:
-            stack.append(build_singleton_nfa(c))
-        elif c in binary_ops:
+        if c[0] in binary_ops:
             e2 = stack.pop()
             e1 = stack.pop()
-
             if c == '&':
                 stack.append(build_concat_nfa(e1,e2))
             elif c == '|':
                 stack.append(build_or_nfa(e1,e2))
 
-        elif c in unary_ops:
+        elif c[0] in unary_ops:
             e1 = stack.pop()
-
             if c == '*':
                 stack.append(build_star_nfa(e1))
             elif c == '+':
                 stack.append(build_plus_nfa(e1))
             elif c == '?':
                 stack.append(build_question_nfa(e1))
+            elif c == "{":
+                m,n = c[1:-1].split(",")
+                stack.append(build_quantifier_nfa(e1, int(m), int(n)))
+
+        else: 
+            stack.append(build_singleton_nfa(c))
 
     return stack.pop()
 
@@ -161,6 +164,22 @@ def build_question_nfa(nfa):
     nfa.get_start_state().add_transition(opt_state, None)
     return NFA(nfa.start)
 
+def build_quantifier_nfa(nfa, m, n):
+    """Returns a modified version of the nfa to implement the {m,n} operator"""
+    assert m <= n
+    for i in range(n):
+        new_nfa = nfa.clone()
+        for acc in nfa.get_accept_states():
+            acc.add_transition(new_nfa.get_start_state(), None)
+            if i < m:
+                acc.set_accept(False)
+
+    end = NFAState(start=False, accept=True)
+    for acc in nfa.get_accept_states():
+        acc.set_accept(False)
+        acc.add_transition(end, None)
+
+
 #---- Utility ----#
 def _tokenize(s):
     """ A generator for a regex that yields a token 
@@ -185,6 +204,23 @@ def _tokenize(s):
                 j += 1
         except IndexError:
             raise ValueError("character class not ended")
+
+    def get_quantifier_token(s,j):
+        tok = []
+        try:
+            while True:
+                if s[j] == "}":
+                    tok.append(s[j])
+                    return "".join(tok), j
+                elif s[j] == ",":
+                    tok.append(s[j])
+                else:
+                    tok.append(int(s[j]))
+                j += 1
+        except IndexError:
+            raise ValueError("character class not ended")
+        except ValueError:
+            raise ValueError("Non-numbers digits found in quantifier")
 
     i = 0
     while i < len(s):
@@ -279,12 +315,19 @@ def _walk_dfa(dfa, inp):
         returns True if traversal ended on an accept state
     """
     curr_state = dfa.get_start_state()
-    for c in _tokenize(inp):
-        trans = _get_transition(curr_state,c)
+    for tok in _tokenize(inp):
+        trans = _get_transition(curr_state,tok)
         if not trans:
             return False
-        next_state = curr_state.get_transition(trans)
-        curr_state = next_state
+        elif trans == "^":
+            if not inp.startswith(tok):
+                return False
+        elif trans == "$":
+            if not inp.endswith(tok):
+                return False
+        else:
+            next_state = curr_state.get_transition(trans)
+            curr_state = next_state
     return curr_state.is_accept()
 
 #---- Public Interface ----#

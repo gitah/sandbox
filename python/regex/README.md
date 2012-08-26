@@ -4,7 +4,6 @@ This is my implementation of a Regular Expression (regex) parser in Python. It
 is implemented using a Discrete Finite Automaton
 
 Here is how it works:
-
     1. (<regex>,<string>) is given as input
     2. Convert <regex> to <postfix> form
     3. Build <NFA> from <postfix>
@@ -23,7 +22,6 @@ Regex Terminology
 
     Character: a normal symbol like "a" or "b"
 
-
     Operator: a symbol with a special meaning
         - Divided into unary (ex. ?) and binary operators (ex. + |)
 
@@ -38,7 +36,7 @@ How to use
 ==========
 Public Interfaces:
 
-regex.match(<regex>, <string>)
+regex.match(regex, string)
     - returns true if <string> matches the given <regex>  
     - note: the match starts at the begining of <string>
 
@@ -53,9 +51,9 @@ I'm doing this just for fun; do what ever you like with the code
 
 TODO
 ====
-Implement the ^ $ anchor symbols
+Test the ^ $ anchor symbols
 
-Implmenent {m,n} quantifier
+Test {m,n} quantifier
 
 Implement capturing groups
 

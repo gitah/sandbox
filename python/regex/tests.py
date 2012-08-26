@@ -23,7 +23,7 @@ class TestAutomaton(unittest.TestCase):
 
         self.assertTrue(s1.get_null_transitions()[0] == s2)
         self.assertTrue(s1.get_transition("a") == s3)
-        self.assertEquals(s1.get_adj(), {s3,s2})
+        self.assertEquals(set(s1.adj()), {("a",s3),(None,s2)})
 
     def build_nfa(self):
         # ( a+ | b(a|b) )
@@ -72,6 +72,18 @@ class TestAutomaton(unittest.TestCase):
         self.assertEquals(nfa.transition({s1},"a"), {s2})
         self.assertEquals(nfa.transition({s1,s2,s3,s4},"a"), {s2,s5})
         self.assertEquals(nfa.transition_values({s1,s2,s3}), {"a","b"})
+
+        # clone
+        new_nfa = nfa.clone()
+        p1 = new_nfa.get_start_state()
+        p2 = p1.get_transition("a")
+        p3 = p1.get_null_transitions()[0]
+        p4 = p3.get_transition("b")
+        p5 = p4.get_transition("a")
+        p6 = p4.get_null_transitions()[0]
+        p7 = p6.get_transition("b")
+        self.assertTrue(p1 and p2 and p3 and p4 and p6)
+        self.assertTrue(p1.is_start())
 
     def test_DFA(self):
         s1 = NFAState()
