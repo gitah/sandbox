@@ -51,10 +51,6 @@ I'm doing this just for fun; do what ever you like with the code
 
 TODO
 ====
-Test the ^ $ anchor symbols
-
-Test {m,n} quantifier
-
 Implement capturing groups
 
 Implment some sort of way to select greedy/non-greedy match

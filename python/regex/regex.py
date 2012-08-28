@@ -2,7 +2,6 @@
 # Author: Fred Song, fsong@xei.ca
 
 # A regex parser implementation
-#TODO: write tests for quanitfier{m,n} and anchors (^, $)
 
 from automaton import NFAState, NFA, DFA
 
@@ -18,7 +17,7 @@ letters = [
 ]
 digits = [0,1,2,3,4,5,6,7,8,9]
 escape = "\\"
-misc = ["^","$"]
+anchors = ["^","$"]
 char_class_map = {
     "\\s": "[ \t]",
     "\\w": "[0-9a-zA-Z_]"
@@ -54,7 +53,7 @@ def postfix_recur(arr,start=0,in_brackets=False):
     while i < len(arr):
         tok = arr[i]
         # do different things depending on the type of token
-        if tok in binary_ops:
+        if tok[0] in binary_ops:
             if len(stack) == 0:
                 raise ValueError("bad regex: %s" % "".join(arr))
             e1 = stack_to_postfix()
@@ -63,7 +62,7 @@ def postfix_recur(arr,start=0,in_brackets=False):
                 raise ValueError("bad regex: %s" % "".join(arr))
             stack.append(e1 + e2 + tok)
             i = i2-1 # we want to revisit the token we terminated at
-        elif tok in unary_ops:
+        elif tok[0] in unary_ops:
             if len(stack) == 0:
                 raise ValueError("bad regex: %s" % "".join(arr))
             e = stack.pop()
@@ -86,7 +85,6 @@ def postfix_recur(arr,start=0,in_brackets=False):
 #---- Postfix -> NFA ----#
 def postfix_to_nfa(post_regex):
     regex_arr = regex_to_array(post_regex)
-    
     stack = []
     for c in regex_arr:
         if c[0] in binary_ops:
@@ -105,7 +103,7 @@ def postfix_to_nfa(post_regex):
                 stack.append(build_plus_nfa(e1))
             elif c == '?':
                 stack.append(build_question_nfa(e1))
-            elif c == "{":
+            elif c[0] == "{":
                 m,n = c[1:-1].split(",")
                 stack.append(build_quantifier_nfa(e1, int(m), int(n)))
 
@@ -134,21 +132,21 @@ def build_concat_nfa(nfa1, nfa2):
     for acc in nfa1.get_accept_states():
         acc.add_transition(start2, None)
         acc.set_accept(False)
-    return NFA(nfa1.start)
+    return NFA(nfa1.get_start_state())
 
 def build_or_nfa(nfa1, nfa2):
     """Joins two NFA together to implement the | operator"""
     start1 = nfa1.start
     start2 = nfa2.start
     start1.add_transition(start2, None)
-    return NFA(nfa1.start)
+    return NFA(nfa1.get_start_state())
 
 #Unary Operators
 def build_star_nfa(nfa):
     """Returns a modified version of the nfa to implement the * operator"""
     plus_nfa = build_plus_nfa(nfa)
     nfa.start.accept = True    
-    return NFA(nfa.start)
+    return NFA(nfa.get_start_state())
 
 def build_plus_nfa(nfa):
     """Returns a modified version of the nfa to implement the + operator"""
@@ -156,28 +154,33 @@ def build_plus_nfa(nfa):
     # for v_a in V_a: add edge from v_a to v_start
     for acc in nfa.get_accept_states():
         acc.add_transition(nfa.start, None)
-    return NFA(nfa.start)
+    return NFA(nfa.get_start_state())
 
 def build_question_nfa(nfa):
     """Returns a modified version of the nfa to implement the ? operator"""
     opt_state = NFAState(accept=True)
     nfa.get_start_state().add_transition(opt_state, None)
-    return NFA(nfa.start)
+    return NFA(nfa.get_start_state())
 
 def build_quantifier_nfa(nfa, m, n):
     """Returns a modified version of the nfa to implement the {m,n} operator"""
     assert m <= n
-    for i in range(n):
+    curr_nfa = nfa.clone()
+    start = curr_nfa.get_start_state()
+    for i in range(n-1):
         new_nfa = nfa.clone()
-        for acc in nfa.get_accept_states():
+        for acc in curr_nfa.get_accept_states():
             acc.add_transition(new_nfa.get_start_state(), None)
-            if i < m:
+            if i < m-1:
                 acc.set_accept(False)
+        curr_nfa = new_nfa
 
     end = NFAState(start=False, accept=True)
-    for acc in nfa.get_accept_states():
+    for acc in curr_nfa.get_accept_states():
         acc.set_accept(False)
         acc.add_transition(end, None)
+
+    return NFA(start)
 
 
 #---- Utility ----#
@@ -215,12 +218,10 @@ def _tokenize(s):
                 elif s[j] == ",":
                     tok.append(s[j])
                 else:
-                    tok.append(int(s[j]))
+                    tok.append(s[j])
                 j += 1
         except IndexError:
             raise ValueError("character class not ended")
-        except ValueError:
-            raise ValueError("Non-numbers digits found in quantifier")
 
     i = 0
     while i < len(s):
@@ -231,6 +232,10 @@ def _tokenize(s):
             i = inew
         elif c == '\\':
             tok, inew = get_escape_token(s,i)
+            yield tok
+            i = inew
+        elif c == '{':
+            tok, inew = get_quantifier_token(s,i)
             yield tok
             i = inew
         else:
@@ -307,6 +312,7 @@ def _get_transition(state, c):
                 return tv
         if tv == c:
             return tv
+
     return None
 
 def _walk_dfa(dfa, inp):
@@ -314,20 +320,23 @@ def _walk_dfa(dfa, inp):
         
         returns True if traversal ended on an accept state
     """
+    tokens = list(_tokenize(inp))
     curr_state = dfa.get_start_state()
+
+    for tv in curr_state.get_transition_values():
+        if tv == "^":
+            curr_state = curr_state.get_transition("^")
+
     for tok in _tokenize(inp):
         trans = _get_transition(curr_state,tok)
         if not trans:
             return False
-        elif trans == "^":
-            if not inp.startswith(tok):
-                return False
-        elif trans == "$":
-            if not inp.endswith(tok):
-                return False
-        else:
-            next_state = curr_state.get_transition(trans)
-            curr_state = next_state
+        curr_state = curr_state.get_transition(trans)
+    
+    for tv in curr_state.get_transition_values():
+        if tv == "$":
+            curr_state = curr_state.get_transition("$")
+
     return curr_state.is_accept()
 
 #---- Public Interface ----#
@@ -342,4 +351,4 @@ def match(myregex, inp):
     dfa = nfa.to_dfa()
 
     # Walk DFA
-    return _walk_dfa(dfa, inp)
+    return _walk_dfa(dfa,inp)

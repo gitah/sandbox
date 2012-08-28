@@ -6,7 +6,7 @@ class TestAutomaton(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_State(self):
+    def _test_State(self):
         s1 = State()
         self.assertFalse(s1.is_start())
         self.assertFalse(s1.is_accept())
@@ -14,7 +14,7 @@ class TestAutomaton(unittest.TestCase):
         s1.set_accept(True)
         self.assertTrue(s1.is_accept())
 
-    def test_NFAState(self):
+    def _test_NFAState(self):
         s1 = NFAState()
         s2 = NFAState()
         s3 = NFAState()
@@ -46,7 +46,7 @@ class TestAutomaton(unittest.TestCase):
         nfa = NFA(s1)
         return nfa
 
-    def test_NFA(self):
+    def _test_NFA(self):
         nfa = self.build_nfa()
 
         s1 = nfa.get_start_state()
@@ -85,7 +85,7 @@ class TestAutomaton(unittest.TestCase):
         self.assertTrue(p1 and p2 and p3 and p4 and p6)
         self.assertTrue(p1.is_start())
 
-    def test_DFA(self):
+    def _test_DFA(self):
         s1 = NFAState()
         s2 = NFAState()
         s3 = NFAState()
@@ -100,7 +100,7 @@ class TestAutomaton(unittest.TestCase):
         self.assertFalse(dfa.get_state_by_substate({s1,s2}))
         self.assertTrue(dfa.get_state_by_substate({s1,s2,s3}), t)
 
-    def test_NFA_to_DFA(self):
+    def _test_NFA_to_DFA(self):
         nfa = self.build_nfa()
         s1 = nfa.get_start_state()
         s2 = s1.get_transition("a")
@@ -139,10 +139,11 @@ class RegexParserTestCase(unittest.TestCase):
         t6 = r"\w\w\s[+*]?[5-9]"
         t7 = r"(a|b)+@vic\.(ca|com)"
         t8 = r"(abc)(def)+"
-        return (t1,t2,t3,t4,t5,t6,t7,t8)
+        t9 = r"^(ab){3,5}$"
+        return (t1,t2,t3,t4,t5,t6,t7,t8,t9)
 
-    def test_postfix(self):
-        t1,t2,t3,t4,t5,t6,t7,t8 = self.get_input_cases()
+    def _test_postfix(self):
+        t1,t2,t3,t4,t5,t6,t7,t8,t9 = self.get_input_cases()
         self.assertEquals(re.postfix(t1), "ab&")
         self.assertEquals(re.postfix(t2), "ab|")
         self.assertEquals(re.postfix(t3), "ab|a+&")
@@ -151,9 +152,10 @@ class RegexParserTestCase(unittest.TestCase):
         self.assertEquals(re.postfix(t6), "\w\w\s[+*]?[5-9]&&&&")
         self.assertEquals(re.postfix(t7), "ab|+@vic\\.ca&com&&|&&&&&&")
         self.assertEquals(re.postfix(t8), "abc&&def&&+&")
+        self.assertEquals(re.postfix(t9), "^ab&{3,5}$&&&")
 
-    def test_nfa(self):
-        t1,t2,t3,t4,t5,t6,t7,t8 = self.get_input_cases()
+    def _test_nfa(self):
+        t1,t2,t3,t4,t5,t6,t7,t8,t9 = self.get_input_cases()
         nfa1 = re.postfix_to_nfa(re.postfix(t1))
         nfa2 = re.postfix_to_nfa(re.postfix(t2))
         nfa3 = re.postfix_to_nfa(re.postfix(t3))
@@ -167,8 +169,7 @@ class RegexParserTestCase(unittest.TestCase):
         self.assertEquals(len(nfa5.get_accept_states()), 1)
 
     def test_match(self):
-        t1,t2,t3,t4,t5,t6,t7,t8 = self.get_input_cases()
-
+        t1,t2,t3,t4,t5,t6,t7,t8,t9 = self.get_input_cases()
         self.assertTrue(re.match(t1, "ab"))
         self.assertFalse(re.match(t1, "ba"))
 
@@ -197,6 +198,15 @@ class RegexParserTestCase(unittest.TestCase):
         self.assertFalse(re.match(t6, "@y +9"))
 
         self.assertTrue(re.match(t7, r"ab@vic\.ca"))
+
+        self.assertTrue(re.match(t9, r"ababab"))
+        self.assertTrue(re.match(t9, r"abababab"))
+        self.assertTrue(re.match(t9, r"ababababab"))
+        self.assertFalse(re.match(t9, r"ab"))
+        self.assertFalse(re.match(t9, r"abab"))
+        self.assertFalse(re.match(t9, r"abababababab"))
+        self.assertFalse(re.match(t9, r"abababababt"))
+        self.assertFalse(re.match(t9, r"tababababab"))
 
 if __name__ == "__main__":
     unittest.main()
