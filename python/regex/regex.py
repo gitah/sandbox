@@ -332,6 +332,8 @@ def _walk_dfa(dfa, inp):
         if not trans:
             return False
         curr_state = curr_state.get_transition(trans)
+        if curr_state.is_accept():
+            return True
     
     for tv in curr_state.get_transition_values():
         if tv == "$":
@@ -341,6 +343,12 @@ def _walk_dfa(dfa, inp):
 
 #---- Public Interface ----#
 def match(myregex, inp):
+    """ Returns true if the input matches the given regex 
+        
+        The match starts from the beginning of the input and returns True as
+        soon as a match is found; the match does not neccesarily contain the
+        entire input
+    """
     # Convert to postfix for easier parsing
     post_regex = postfix(myregex)
 
@@ -352,3 +360,18 @@ def match(myregex, inp):
 
     # Walk DFA
     return _walk_dfa(dfa,inp)
+
+def search(myregex, inp):
+    """ Returns true if the input matches the given regex 
+        
+        The match could be any substring within the input
+    """
+    post_regex = postfix(myregex)
+    nfa = postfix_to_nfa(post_regex)
+    dfa = nfa.to_dfa()
+
+    while inp:
+        if _walk_dfa(dfa,inp):
+            return True
+        inp = inp[1:]
+    return False

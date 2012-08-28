@@ -175,13 +175,15 @@ class RegexParserTestCase(unittest.TestCase):
 
         self.assertTrue(re.match(t2, "a"))
         self.assertTrue(re.match(t2, "b"))
-        self.assertFalse(re.match(t2, "ab"))
+        self.assertTrue(re.match(t2, "af"))
+        self.assertFalse(re.match(t2, "fa"))
 
         self.assertTrue(re.match(t3, "aa"))
         self.assertTrue(re.match(t3, "ba"))
         self.assertTrue(re.match(t3, "aaaaaaaaaaaaa"))
+        self.assertTrue(re.match(t3, "aaaaafoobar"))
+        self.assertFalse(re.match(t3, "foobaraaaaa"))
         self.assertFalse(re.match(t3, "a"))
-        self.assertFalse(re.match(t3, "aaaaab"))
 
         self.assertTrue(re.match(t4, "aabababbacd"))
         self.assertTrue(re.match(t4, "cd"))
@@ -207,6 +209,20 @@ class RegexParserTestCase(unittest.TestCase):
         self.assertFalse(re.match(t9, r"abababababab"))
         self.assertFalse(re.match(t9, r"abababababt"))
         self.assertFalse(re.match(t9, r"tababababab"))
+
+    def test_search(self):
+        t1,t2,t3,t4,t5,t6,t7,t8,t9 = self.get_input_cases()
+        self.assertTrue(re.search(t4, "abcdfoobar"))
+        self.assertTrue(re.search(t4, "foobarabcdfoobar"))
+        self.assertTrue(re.search(t4, "__arabcd"))
+        self.assertFalse(re.search(t4, "zarafce"))
+
+        self.assertTrue(re.search(t8, "xzvfabcdefdefdeffffff"))
+        self.assertFalse(re.search(t8, "xzvfabc"))
+
+        self.assertTrue(re.search(t9, "ababab"))
+        self.assertFalse(re.search(t9, "ttttabababzzzz"))
+
 
 if __name__ == "__main__":
     unittest.main()

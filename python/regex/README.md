@@ -36,14 +36,26 @@ How to use
 ==========
 Public Interfaces:
 
-regex.match(regex, string)
-    - returns true if <string> matches the given <regex>  
-    - note: the match starts at the begining of <string>
+##regex.match(regex, string)
+    - Searches <string> from the begining for the given <regex>
+    - Returns true if the begining of the <string> matches the <regex>  
+    - NOTE: the match starts at the begining of <string>
 
 Example
 
     import regex as re
-    re.match("www\.\w*\.(ca|com|net)", "www.example.com") # returns true
+    re.match("www\.\w*\.(ca|com|net)", "www.example.com is my website") # returns true
+    re.match("www\.\w*\.(ca|com|net)", "my website is www.example.com") # returns false
+
+##regex.search(regex, string)
+    - Searches any substring of <string> to see if it matches the <regex>
+    - NOTE: the match can be anywhere in <string>
+
+Example
+
+    import regex as re
+    re.match("www\.\w*\.(ca|com|net)", "www.example.com is my website") # returns true
+    re.match("www\.\w*\.(ca|com|net)", "my website is www.example.com") # returns true
 
 License
 =======
@@ -54,7 +66,5 @@ TODO
 Implement capturing groups
 
 Implment some sort of way to select greedy/non-greedy match
-
-Implement regex.search
 
 Implement regex.findall
